@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Endpoint Forge v7.0</title>
+<title>Endpoint Forge v7.1</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -227,6 +227,15 @@ th.sort-desc::after{content:" ▼";color:var(--accent)}
 .classification-compact .multi-select{min-height:36px;max-height:78px;overflow:auto}
 .classification-compact{gap:10px}
 .cl-tree-row{user-select:none}
+
+/* v7.1 light/dark theme and modal hardening */
+body.light{--bg:#f7f8fb;--surface:#ffffff;--surface2:#eef1f7;--border:#d5dae7;--border2:#b9c1d3;--text:#111827;--text2:#475569;--text3:#64748b;}
+body.light .code-block{background:#f1f5f9;}
+.modal{max-height:88vh;display:flex;flex-direction:column;}
+#modal-body{overflow:auto;min-height:0;}
+.theme-toggle{white-space:nowrap;}
+.script-type-row{display:grid;grid-template-columns:1fr 110px 70px;gap:8px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--border)}
+.script-type-row:last-child{border-bottom:none}
 </style>
 </head>
 <body>
@@ -249,6 +258,7 @@ th.sort-desc::after{content:" ▼";color:var(--accent)}
     <input id="ctx-date" type="date" style="width:130px">
   </div>
   <button class="context-info" title="What influences this page" onclick="showPageContext()">ⓘ</button>
+  <button class="theme-toggle small" id="theme-toggle" onclick="toggleTheme()" title="Switch light/dark mode">Dark</button>
   <div class="save-indicator"><div class="save-dot" id="save-dot"></div><span id="save-label">Saved</span></div>
 </div>
 
@@ -271,7 +281,7 @@ th.sort-desc::after{content:" ▼";color:var(--accent)}
   <div class="nav-item" onclick="nav('settings')" data-page="settings">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> Settings
   </div>
-  <div style="margin-top:auto;padding:10px 16px;font-size:10px;color:var(--text3);border-top:1px solid var(--border)"><button class="version-btn" onclick="showChangeLog()">v7.0 · Endpoint Forge</button></div>
+  <div style="margin-top:auto;padding:10px 16px;font-size:10px;color:var(--text3);border-top:1px solid var(--border)"><button class="version-btn" onclick="showChangeLog()">v7.1 · Endpoint Forge</button></div>
 </div>
 
 <!-- CONTENT -->
@@ -421,6 +431,7 @@ th.sort-desc::after{content:" ▼";color:var(--accent)}
       <div class="sn-item" onclick="settingsTab('types')" data-tab="types">Types</div>
       <div class="sn-item" onclick="settingsTab('phases')" data-tab="phases">Phases</div>
       <div class="sn-item" onclick="settingsTab('operating-systems')" data-tab="operating-systems">Operating Systems</div>
+      <div class="sn-item" onclick="settingsTab('script-types')" data-tab="script-types">Script Types</div>
       <div class="sn-item" onclick="settingsTab('secrets')" data-tab="secrets">Secrets</div>
     </div>
     <div class="settings-content" id="settings-content"></div>
@@ -554,6 +565,8 @@ function init(){
   if(savedLogs){try{logs=JSON.parse(savedLogs);}catch(e){logs=[];}}
   
   normalizeCatalogForV65();
+  normalizeCatalogForV71();
+  applyTheme();
   const d=document.getElementById('ctx-date');
   d.value=ctx.date||new Date().toISOString().split('T')[0];
   d.addEventListener('change',()=>{ctx.date=d.value;updateCtxDisplay();});
@@ -626,7 +639,7 @@ async function autosave(){
       setFileRef('catalog','writable file access / autosaved',fileHandles.catalog.name);
     }
     if(fileHandles.secrets){
-      await writeTextToHandle(fileHandles.secrets, JSON.stringify({schemaVersion:'7.0',productName:'Endpoint Forge',secrets:catalog.secrets||[]},null,2));
+      await writeTextToHandle(fileHandles.secrets, JSON.stringify({schemaVersion:'6.9.2',productName:'Endpoint Forge',secrets:catalog.secrets||[]},null,2));
       storageSource.secrets='file access';
       setFileRef('secrets','writable file access / autosaved',fileHandles.secrets.name);
     }
@@ -636,7 +649,7 @@ async function autosave(){
       setFileRef('state','writable file access / autosaved',fileHandles.state.name);
     }
     if(fileHandles.logs){
-      await writeTextToHandle(fileHandles.logs, JSON.stringify({schemaVersion:'7.0',productName:'Endpoint Forge',exported:new Date().toISOString(),logs},null,2));
+      await writeTextToHandle(fileHandles.logs, JSON.stringify({schemaVersion:'6.9.2',productName:'Endpoint Forge',exported:new Date().toISOString(),logs},null,2));
       storageSource.logs='file access';
       setFileRef('logs','writable file access / autosaved',fileHandles.logs.name);
     }
@@ -1783,6 +1796,7 @@ function renderSettingsContent(){
     case 'types': el.innerHTML=renderListSettings('types','Types');break;
     case 'phases': el.innerHTML=renderListSettings('phases','Phases');break;
     case 'operating-systems': el.innerHTML=renderOSSettings();break;
+    case 'script-types': el.innerHTML=renderScriptTypesSettings();break;
     case 'secrets': el.innerHTML=renderSecretsSettings();break;
   }
 }
@@ -1824,7 +1838,7 @@ function deleteClient(id){
 function renderProfilesSettings(){
   const profs=(catalog.profiles||[]).filter(p=>p.clientId===ctx.clientId).sort(alphaByName);
   const itemOptions=catalog.items.slice().sort(alphaByName).map(i=>({value:i.id,label:i.name}));
-  return `<div class="section-hdr"><h2>Profiles (${currentClientName()})</h2><button onclick="addProfile()">+ Add Profile</button></div>
+  return `<div class="section-hdr"><h2>Profiles (${currentClientName()})</h2><div style="display:flex;gap:8px"><button onclick="addProfile()">+ Add Profile</button><button onclick="cloneProfileDialog()">Clone Profile</button></div></div>
   ${profs.map(p=>`<div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px">
       <input value="${esc(p.name)}" style="font-weight:600;font-size:15px;border:none;background:transparent;padding:0;color:var(--text)" onchange="updateProfile('${p.id}','name',this.value)">
@@ -1880,7 +1894,7 @@ function deleteProfile(id){
 }
 
 function renderListSettings(key,label){
-  return `<div class="section-hdr"><h2>${label}</h2><button onclick="addListItem('${key}','${label}')">+ Add</button></div>
+  return `<div class="section-hdr"><h2>${label}</h2><div style="display:flex;gap:8px"><button onclick="sortListAlpha('${key}')">Sort A-Z</button><button onclick="addListItem('${key}','${label}')">+ Add</button></div></div>
   <div class="list-editor">
   ${(catalog[key]||[]).map((val,idx)=>`<div class="le-row">
     <span class="sort-btns"><button onclick="moveListItem('${key}',${idx},-1)">↑</button><button onclick="moveListItem('${key}',${idx},1)">↓</button></span>
@@ -1919,7 +1933,7 @@ function deleteListItem(key,idx){
 }
 
 function renderOSSettings(){
-  return `<div class="section-hdr"><h2>Operating Systems</h2><button onclick="addOS()">+ Add OS</button></div>
+  return `<div class="section-hdr"><h2>Operating Systems</h2><div style="display:flex;gap:8px"><button onclick="sortOSAlpha()">Sort A-Z</button><button onclick="addOS()">+ Add OS</button></div></div>
   <table style="width:100%">
     <thead><tr><th>Order</th><th>ID</th><th>Name</th><th>Script File</th><th>Script Type</th><th>Status</th><th></th></tr></thead>
     <tbody>${catalog.operatingSystems.map((o,idx)=>`<tr class="${o.enabled===false?'disabled-row':''}">
@@ -1990,7 +2004,7 @@ function deleteOS(id){
 
 function renderSecretsSettings(){
   const secrets=sortedSecretsForClient(ctx.clientId);
-  return `<div class="section-hdr"><h2>Secrets (${currentClientName()})</h2><div style="display:flex;gap:8px"><button onclick="toggleAllSecrets(true)">Show All</button><button onclick="toggleAllSecrets(false)">Hide All</button><button onclick="addSecret()">+ Add Secret</button></div></div>
+  return `<div class="section-hdr"><h2>Secrets (${currentClientName()})</h2><div style="display:flex;gap:8px"><button onclick="sortSecretsAlpha()">Sort A-Z</button><button onclick="toggleAllSecrets(true)">Show All</button><button onclick="toggleAllSecrets(false)">Hide All</button><button onclick="addSecret()">+ Add Secret</button></div></div>
   <div style="background:var(--amber);color:#000;border-radius:6px;padding:8px 12px;font-size:12px;margin-bottom:12px">⚠ Secrets are hidden by default to reduce accidental exposure, not as cryptographic protection. Unmask only when needed to validate values and avoid screenshots while visible.</div>
   <div class="list-editor">
   ${secrets.map(s=>`<div class="le-row ${s.enabled===false?'disabled-row':''}" style="flex-direction:column;align-items:flex-start;gap:8px;padding:12px">
@@ -2182,7 +2196,7 @@ async function importSecrets(){
 }
 
 async function exportSecrets(){
-  const text=JSON.stringify({schemaVersion:'7.0',productName:'Endpoint Forge',secrets:catalog.secrets||[]},null,2);
+  const text=JSON.stringify({schemaVersion:'6.9.2',productName:'Endpoint Forge',secrets:catalog.secrets||[]},null,2);
   try{
     if(await saveJsonWithPicker('secrets','endpoint-forge-secrets.json',text)){
       dirty=false; updateSaveIndicator(); renderDashboard(); addLog('ok','Saved endpoint-forge-secrets.json with write access'); return;
@@ -2239,7 +2253,7 @@ async function importState(){
 }
 
 async function exportLogs(){
-  const text=JSON.stringify({schemaVersion:'7.0',productName:'Endpoint Forge',exported:new Date().toISOString(),logs},null,2);
+  const text=JSON.stringify({schemaVersion:'6.9.2',productName:'Endpoint Forge',exported:new Date().toISOString(),logs},null,2);
   try{
     if(await saveJsonWithPicker('logs','endpoint-forge-log.json',text)){
       dirty=false; updateSaveIndicator(); renderDashboard(); addLog('ok','Saved endpoint-forge-log.json with write access'); return;
@@ -2299,7 +2313,7 @@ function makeEmptyCatalog(){
   return {
     clients:[], profiles:[], categories:[], tags:[], types:[], phases:[], operatingSystems:[],
     checklists:[], items:[], secrets:[], buildStates:{},
-    productName:'Endpoint Forge', schemaVersion:'7.0', catalogName:'Endpoint Forge Catalog', notes:''
+    productName:'Endpoint Forge', schemaVersion:'6.9.2', catalogName:'Endpoint Forge Catalog', notes:''
   };
 }
 function blankSlate(){
@@ -2359,7 +2373,7 @@ function showPageContext(){
 }
 function showChangeLog(){
   showModal('Endpoint Forge Change Log',`<div style="max-height:420px;overflow:auto;line-height:1.5;color:var(--text2)">
-    <h3>v7.0</h3><ul><li>Stabilization release based on Architecture Review v1.0.</li><li>Preserves the current Endpoint Forge UI theme while preparing the codebase for clearer state, storage, validation, and render boundaries.</li><li>Restores ZIP generation syntax, version labeling, and baseline portability.</li><li>Repositions Endpoint Forge as a portable endpoint artifact repository and runbook/script generator.</li></ul>
+    <h3>v7.1</h3><ul><li>Added light/dark mode with catalog preference persistence.</li><li>Added editable script type and extension settings.</li><li>Restored profile cloning and checklist cloning across clients.</li><li>Added alphabetical sort controls for taxonomy, operating systems, script types, and secrets.</li><li>Clarified v7 ownership model: global items/taxonomy plus client-scoped profiles, checklists, secrets, and endpoints.</li></ul><h3>v7.0</h3><ul><li>Stabilization release based on Architecture Review v1.0.</li><li>Preserves the current Endpoint Forge UI theme while preparing the codebase for clearer state, storage, validation, and render boundaries.</li><li>Restores ZIP generation syntax, version labeling, and baseline portability.</li><li>Repositions Endpoint Forge as a portable endpoint artifact repository and runbook/script generator.</li></ul>
     <h3>v6.9.2</h3><ul><li>Restored Blank Slate workflow.</li><li>Corrected change log version history and modal close-only behavior for informational windows.</li><li>Restored Microsoft demo tenant names: Contoso and Fabrikam.</li><li>Documented architecture review need to prevent regression churn.</li></ul>
     <h3>v6.9.1</h3><ul><li>Clarified autosave: normal imports are read-only unless the browser grants writable file handles.</li><li>Updated save indicator states for disk, recovery cache, read-only import, and in-memory/demo data.</li></ul>
     <h3>v6.9</h3><ul><li>Added online hardening pass for GitHub Pages hosting.</li><li>Added Blank Slate concept, demo-data cleanup, file hover details, AGPL-oriented README notes, and online-safe defaults.</li></ul>
@@ -2404,6 +2418,149 @@ function modalOk(){if(modalCallback)modalCallback();closeModal();}
 // ===== UTILS =====
 function esc(s){
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+
+// ===== v7.1 RELATIONSHIP / THEME / CLONE / SORT STABILIZATION =====
+function normalizeCatalogForV71(){
+  catalog.preferences = catalog.preferences || {};
+  catalog.preferences.theme = catalog.preferences.theme || 'dark';
+  catalog.scriptTypes = catalog.scriptTypes || [
+    {id:'powershell', name:'PowerShell', extension:'.ps1'},
+    {id:'bash', name:'Bash / Zsh', extension:'.sh'},
+    {id:'cmd', name:'Windows Command', extension:'.cmd'},
+    {id:'python', name:'Python', extension:'.py'}
+  ];
+  // Desired v7 ownership model: Items/taxonomy/script types are global; clients own profiles, client checklists, secrets, and endpoint state.
+  (catalog.clients||[]).forEach(c=>{ if(c.enabled===undefined)c.enabled=true; });
+  (catalog.profiles||[]).forEach(p=>{ if(p.enabled===undefined)p.enabled=true; });
+}
+function applyTheme(){
+  const theme=(catalog.preferences&&catalog.preferences.theme)||'dark';
+  document.body.classList.toggle('light', theme==='light');
+  const btn=document.getElementById('theme-toggle');
+  if(btn) btn.textContent = theme==='light' ? 'Light' : 'Dark';
+}
+function toggleTheme(){
+  catalog.preferences=catalog.preferences||{};
+  catalog.preferences.theme = catalog.preferences.theme==='light' ? 'dark' : 'light';
+  applyTheme();
+  markDirty();
+  addLog('info','Theme changed to '+catalog.preferences.theme);
+}
+function sortNamedEntities(){
+  catalog.clients=(catalog.clients||[]).sort(alphaByName);
+  catalog.profiles=(catalog.profiles||[]).sort(alphaByName);
+  catalog.checklists=(catalog.checklists||[]).sort(alphaByName);
+  catalog.secrets=(catalog.secrets||[]).sort((a,b)=>String(a.key||'').localeCompare(String(b.key||''),undefined,{sensitivity:'base'}));
+}
+function sortListAlpha(key){
+  catalog[key]=(catalog[key]||[]).sort((a,b)=>String(a).localeCompare(String(b),undefined,{sensitivity:'base'}));
+  markDirty(); renderSettingsContent(); renderItemFilters(); renderOutputs();
+}
+function sortOSAlpha(){
+  catalog.operatingSystems=(catalog.operatingSystems||[]).sort(alphaByName);
+  markDirty(); renderSettingsContent(); renderItemFilters(); renderOutputs();
+}
+function sortSecretsAlpha(){
+  catalog.secrets=(catalog.secrets||[]).sort((a,b)=>String(a.key||'').localeCompare(String(b.key||''),undefined,{sensitivity:'base'}));
+  markDirty(); renderSettingsContent();
+}
+function scriptExtensionForType(type){
+  const st=(catalog.scriptTypes||[]).find(t=>t.id===type || t.name===type);
+  return st ? (st.extension||'') : (type==='powershell'?'.ps1':type==='cmd'?'.cmd':'.sh');
+}
+function renderScriptTypesSettings(){
+  normalizeCatalogForV71();
+  return `<div class="section-hdr"><h2>Script Types</h2><div style="display:flex;gap:8px"><button onclick="sortScriptTypesAlpha()">Sort A-Z</button><button onclick="addScriptType()">+ Add Script Type</button></div></div>
+  <div class="card" style="font-size:12px;color:var(--text2);line-height:1.5">Script types control the default file extension used when an OS script type changes. Existing OS script filenames update when the script type changes.</div>
+  <div class="list-editor">
+    <div class="script-type-row" style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px"><b>Name</b><b>ID</b><b>Extension</b></div>
+    ${(catalog.scriptTypes||[]).map(t=>`<div class="script-type-row">
+      <input value="${esc(t.name||'')}" onchange="updateScriptType('${esc(t.id)}','name',this.value)" placeholder="Display name">
+      <input value="${esc(t.id||'')}" onchange="updateScriptTypeId('${esc(t.id)}',this.value)" placeholder="id" style="font-family:monospace">
+      <input value="${esc(t.extension||'')}" onchange="updateScriptType('${esc(t.id)}','extension',this.value)" placeholder=".ext" style="font-family:monospace">
+    </div>`).join('')}
+  </div>`;
+}
+function addScriptType(){
+  const name=prompt('Script type name:'); if(!name)return;
+  const id=name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||('script'+Date.now());
+  const ext=prompt('File extension, including dot:', '.txt')||'.txt';
+  catalog.scriptTypes.push({id,name,extension:ext}); markDirty(); renderSettingsContent();
+}
+function updateScriptType(id,field,val){const t=(catalog.scriptTypes||[]).find(t=>t.id===id); if(!t)return; t[field]=field==='extension'&&val&&!val.startsWith('.')?'.'+val:val; markDirty(); renderSettingsContent();}
+function updateScriptTypeId(oldId,newId){newId=String(newId||'').trim(); if(!newId||newId===oldId)return; if((catalog.scriptTypes||[]).some(t=>t.id===newId)){alert('Script type ID already exists.'); renderSettingsContent(); return;} const t=catalog.scriptTypes.find(t=>t.id===oldId); if(!t)return; t.id=newId; (catalog.operatingSystems||[]).forEach(o=>{if(o.scriptType===oldId)o.scriptType=newId;}); markDirty(); renderSettingsContent(); renderOutputs();}
+function sortScriptTypesAlpha(){catalog.scriptTypes=(catalog.scriptTypes||[]).sort(alphaByName); markDirty(); renderSettingsContent();}
+function clientOptionsHtml(selected){return (catalog.clients||[]).slice().sort(alphaByName).map(c=>`<option value="${esc(c.id)}" ${c.id===selected?'selected':''}>${esc(c.name)}${c.enabled===false?' (disabled)':''}</option>`).join('');}
+function cloneProfileDialog(){
+  const profs=(catalog.profiles||[]).slice().sort(alphaByName);
+  if(!profs.length){alert('No profiles to clone.');return;}
+  showModal('Clone Profile',`<div class="form-grid single">
+    <div class="form-group"><label>Source Profile</label><select id="clone-profile-src">${profs.map(p=>`<option value="${esc(p.id)}">${esc((catalog.clients.find(c=>c.id===p.clientId)?.name||'Unknown')+' / '+p.name)}</option>`).join('')}</select></div>
+    <div class="form-group"><label>Destination Client</label><select id="clone-profile-client">${clientOptionsHtml(ctx.clientId)}</select></div>
+    <div class="form-group"><label>New Profile Name</label><input id="clone-profile-name" placeholder="Cloned profile name"></div>
+  </div>`,'Clone',()=>{
+    const src=catalog.profiles.find(p=>p.id===document.getElementById('clone-profile-src').value); if(!src)return;
+    const dest=document.getElementById('clone-profile-client').value;
+    const name=(document.getElementById('clone-profile-name').value||src.name+' Copy').trim();
+    const clone=JSON.parse(JSON.stringify(src)); clone.id='p'+Date.now(); clone.clientId=dest; clone.name=name; clone.enabled=true;
+    catalog.profiles.push(clone); sortNamedEntities(); markDirty(); populateCtxDropdowns(); renderSettingsContent(); addLog('info','Cloned profile: '+src.name+' to '+(catalog.clients.find(c=>c.id===dest)?.name||dest));
+  });
+}
+function cloneChecklist(){
+  const clId=document.getElementById('cl-selector')?.value; const cl=catalog.checklists.find(c=>c.id===clId); if(!cl)return;
+  showModal('Clone Checklist',`<div class="form-grid single">
+    <div class="form-group"><label>Destination Client</label><select id="clone-checklist-client">${clientOptionsHtml(ctx.clientId)}</select></div>
+    <div class="form-group"><label>New Checklist Name</label><input id="clone-checklist-name" value="${esc(cl.name+' Copy')}"></div>
+  </div>`,'Clone',()=>{
+    const dest=document.getElementById('clone-checklist-client').value;
+    const name=(document.getElementById('clone-checklist-name').value||cl.name+' Copy').trim();
+    const clone=JSON.parse(JSON.stringify(cl)); clone.id='cl'+Date.now(); clone.clientId=dest; clone.name=name; clone.system=false; clone.autoCriteria=clone.autoCriteria||null; resetChecklistIds(clone.items||[]);
+    catalog.checklists.push(clone); sortNamedEntities(); markDirty(); if(dest===ctx.clientId) selectedChecklistId=clone.id; renderChecklists(); addLog('info','Cloned checklist: '+cl.name+' to '+(catalog.clients.find(c=>c.id===dest)?.name||dest));
+  });
+}
+// Override profile renderer to expose clone button and preserve alphabetical choices.
+function renderProfilesSettings(){
+  const profs=(catalog.profiles||[]).filter(p=>p.clientId===ctx.clientId).sort(alphaByName);
+  const itemOptions=(catalog.items||[]).slice().sort(alphaByName).map(i=>({value:i.id,label:i.name}));
+  const osOptions=activeOperatingSystems().map(o=>({value:o.id,label:o.name})).sort((a,b)=>a.label.localeCompare(b.label));
+  return `<div class="section-hdr"><h2>Profiles (${currentClientName()})</h2><div style="display:flex;gap:8px"><button onclick="addProfile()">+ Add Profile</button><button onclick="cloneProfileDialog()">Clone Profile</button></div></div>
+  ${profs.map(p=>`<div class="card ${p.enabled===false?'disabled-row':''}">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px">
+      <input value="${esc(p.name)}" style="font-weight:600;font-size:15px;border:none;background:transparent;padding:0;color:var(--text)" onchange="updateProfile('${p.id}','name',this.value)">
+      <label class="inline-check"><input type="checkbox" ${p.enabled!==false?'checked':''} onchange="updateProfile('${p.id}','enabled',this.checked);populateProfileDropdown();"> Enabled</label><button onclick="saveProfile('${p.id}')">Save</button><button class="small danger" onclick="deleteProfile('${p.id}')">Delete</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group"><label>Include Individual Items</label>${renderMultiSelect('prof-items-'+p.id,itemOptions,p.selectedItemIds||[])}</div>
+      <div class="form-group"><label>Exclude Individual Items</label>${renderMultiSelect('prof-exc-items-'+p.id,itemOptions,p.excludeItemIds||[])}</div>
+      <div class="form-group"><label>Include Categories</label>${renderMultiSelect('prof-inc-cat-'+p.id,(catalog.categories||[]).slice().sort(),p.includeCategories||[])}</div>
+      <div class="form-group"><label>Exclude Categories</label>${renderMultiSelect('prof-exc-cat-'+p.id,(catalog.categories||[]).slice().sort(),p.excludeCategories||[])}</div>
+      <div class="form-group"><label>Include Tags</label>${renderMultiSelect('prof-inc-tags-'+p.id,(catalog.tags||[]).slice().sort(),p.includeTags||[])}</div>
+      <div class="form-group"><label>Exclude Tags</label>${renderMultiSelect('prof-exc-tags-'+p.id,(catalog.tags||[]).slice().sort(),p.excludeTags||[])}</div>
+      <div class="form-group"><label>Include Types</label>${renderMultiSelect('prof-inc-types-'+p.id,(catalog.types||[]).slice().sort(),p.includeTypes||[])}</div>
+      <div class="form-group"><label>Exclude Types</label>${renderMultiSelect('prof-exc-types-'+p.id,(catalog.types||[]).slice().sort(),p.excludeTypes||[])}</div>
+      <div class="form-group"><label>Include Phases</label>${renderMultiSelect('prof-inc-ph-'+p.id,(catalog.phases||[]).slice().sort(),p.includePhases||[])}</div>
+      <div class="form-group"><label>Exclude Phases</label>${renderMultiSelect('prof-exc-ph-'+p.id,(catalog.phases||[]).slice().sort(),p.excludePhases||[])}</div>
+      <div class="form-group"><label>Include Operating Systems</label>${renderMultiSelect('prof-inc-os-'+p.id,osOptions,p.includeOS||[])}</div>
+      <div class="form-group"><label>Exclude Operating Systems</label>${renderMultiSelect('prof-exc-os-'+p.id,osOptions,p.excludeOS||[])}</div>
+    </div>
+  </div>`).join('')}`;
+}
+// Override settings content so Script Types appears as a first-class settings page.
+function renderSettingsContent(){
+  const el=document.getElementById('settings-content');
+  switch(settingsSection){
+    case 'clients': el.innerHTML=renderClientsSettings();break;
+    case 'profiles': el.innerHTML=renderProfilesSettings();break;
+    case 'categories': el.innerHTML=renderListSettings('categories','Categories');break;
+    case 'tags': el.innerHTML=renderListSettings('tags','Tags');break;
+    case 'types': el.innerHTML=renderListSettings('types','Types');break;
+    case 'phases': el.innerHTML=renderListSettings('phases','Phases');break;
+    case 'operating-systems': el.innerHTML=renderOSSettings();break;
+    case 'script-types': el.innerHTML=renderScriptTypesSettings();break;
+    case 'secrets': el.innerHTML=renderSecretsSettings();break;
+  }
 }
 
 // ===== START =====
